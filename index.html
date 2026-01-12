@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系統連線中...</title>
+    <!-- 引入 LINE LIFF SDK -->
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        /* 頁面樣式：簡潔的膚色調風格 */
+        body {
+            background-color: #f9f7f5;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            color: #8c8c8c;
+        }
+        .loader {
+            border: 3px solid #e0e0e0;
+            border-top: 3px solid #cfa387; /* 你的品牌色 */
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        p { font-size: 14px; letter-spacing: 1px; }
+        
+        /* 錯誤訊息區塊 */
+        #error-msg {
+            display: none;
+            color: #d9534f;
+            margin-top: 20px;
+            padding: 0 20px;
+            text-align: center;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="loader"></div>
+    <p id="status-text">正在為您準備...</p>
+    <div id="error-msg"></div>
+
+    <script>
+        // ==========================================
+        //  【設定區域】請修改這裡的 3 個資訊
+        // ==========================================
+
+        // 1. 你的 LIFF ID (去 LINE Developers 複製)
+        const MY_LIFF_ID = '2008869736-IyDsEMo6'; 
+
+        // 2. 你的 Typeform 網址 (記得 Typeform 後台要有 Hidden Field: userid)
+        // 格式通常是 https://form.typeform.com/to/xxxxxx
+        const TYPEFORM_URL = 'https://gb2lbz7yoqt.typeform.com/to/pn7fIrQj#user_id=xxxxx'; 
+
+        // 3. 自動發送的關鍵字 (要跟 LINE 後台設定的一模一樣)
+        const KEYWORD = '索取申請表單'; 
+
+        // 你的官方帳號 ID (備用，萬一自動發送失敗時跳轉用)
+        const LINE_OA_ID = '@306ebtoz'; 
+
+
+        // ==========================================
+        //  【程式執行邏輯】(以下不需要修改)
+        // ==========================================
+
+        async function main() {
+            try {
+                // 初始化 LIFF
+                await liff.init({ liffId: MY_LIFF_ID });
+
+                // 解析網址，看看有沒有帶 "action" 參數
+                const urlParams = new URLSearchParams(window.location.search);
+                const action = urlParams.get('action');
+
+                // 檢查登入狀態 (沒登入就強制登入)
+                if (!liff.isLoggedIn()) {
+                    liff.login();
+                    return;
+                }
+
+                // --- 判斷要執行哪個任務 ---
+                
+                // 任務 A：網址帶有 ?action=trigger -> 代表是從「官網按鈕」來的
+                // 目標：幫用戶傳送關鍵字，然後關閉視窗
+                if (action === 'trigger') {
+                    await handleAutoSend();
+                } 
+                
+                // 任務 B：網址沒有參數 -> 代表是從「LINE 圖卡」來的
+                // 目標：抓 UserID，跳轉去 Typeform
+                else {
+                    await handleRedirectToForm();
+                }
+
+            } catch (err) {
+                showError('系統錯誤：' + err.message + ' (請檢查 LIFF ID 設定)');
+            }
+        }
+
+        // 任務 A 的執行函式：自動發話
+        async function handleAutoSend() {
+            // 檢查是否在 LINE App 內部 (電腦版網頁無法自動發話)
+            if (!liff.isInClient()) {
+                // 如果在外部瀏覽器，直接跳轉到 LINE 加好友連結
+                window.location.href = `https://line.me/R/oaMessage/${LINE_OA_ID}/?${encodeURIComponent(KEYWORD)}`;
+                return;
+            }
+
+            try {
+                // 嘗試發送訊息
+                await liff.sendMessages([{
+                    type: 'text',
+                    text: KEYWORD
+                }]);
+                
+                // 發送成功，關閉視窗
+                liff.closeWindow();
+
+            } catch (err) {
+                // 發送失敗 (通常是因為沒開 chat_message.write 權限)
+                // 備案：跳轉到傳統連結，讓用戶手動按發送
+                window.location.href = `https://line.me/R/oaMessage/${LINE_OA_ID}/?${encodeURIComponent(KEYWORD)}`;
+            }
+        }
+
+        // 任務 B 的執行函式：跳轉表單
+        async function handleRedirectToForm() {
+            try {
+                const profile = await liff.getProfile();
+                const userId = profile.userId;
+
+                // 組合網址：Typeform網址 + #userid=用戶ID
+                const finalUrl = `${TYPEFORM_URL}#userid=${userId}`;
+                
+                // 跳轉
+                window.location.href = finalUrl;
+
+            } catch (err) {
+                showError('無法讀取用戶資料，請稍後再試');
+            }
+        }
+
+        // 顯示錯誤訊息
+        function showError(msg) {
+            document.querySelector('.loader').style.display = 'none';
+            document.getElementById('status-text').style.display = 'none';
+            const errDiv = document.getElementById('error-msg');
+            errDiv.style.display = 'block';
+            errDiv.innerText = msg;
+        }
+
+        // 啟動主程式
+        main();
+    </script>
+</body>
+</html>
