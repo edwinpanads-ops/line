@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>預約準備中...</title>
+    <!-- 引入 LINE LIFF SDK -->
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        body {
+            background-color: #f9f7f5;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: sans-serif;
+            color: #8c8c8c;
+        }
+        .loader {
+            border: 3px solid #e0e0e0;
+            border-top: 3px solid #cfa387;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        p { font-size: 14px; letter-spacing: 1px; }
+        #error-msg { display: none; color: #d9534f; margin-top: 20px; font-size: 12px; padding: 0 20px; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <div class="loader"></div>
+    <p id="status-text">正在為您開啟預約表...</p>
+    <div id="error-msg"></div>
+
+    <script>
+        // ==========================================
+        //  【設定區域】請修改這裡
+        // ==========================================
+
+        // 1. 你的 LIFF ID
+        const MY_LIFF_ID = '2008869736-IyDsEMo6'; 
+
+        // 2. 你的 Simplymeet 預約網址
+        const SIMPLYMEET_URL = 'https://app.simplymeet.me/o/skincover/1on1-45m'; 
+
+        // 3. 自訂欄位代碼
+        // ★ 操作教學：
+        // 因為你設為隱藏，請先去 Simplymeet 後台「暫時取消隱藏」這兩個欄位，存檔。
+        // 然後去預約網頁按右鍵「檢查」，複製 name="..." 裡面的值。
+        // 複製完後，再回去把欄位設回「隱藏」。
+        
+        // 範例格式：'meeting[custom_fields][uuid-xxxx-xxxx]'
+        const NICKNAME_FIELD_NAME = 'answers[0]'; 
+        const USERID_FIELD_NAME = 'answers[1]'; 
+
+
+        // ==========================================
+        //  【核心邏輯】
+        // ==========================================
+
+        async function main() {
+            try {
+                // 初始化 LIFF
+                await liff.init({ liffId: MY_LIFF_ID });
+
+                // 檢查登入
+                if (!liff.isLoggedIn()) {
+                    liff.login();
+                    return;
+                }
+
+                // 獲取資料
+                const profile = await liff.getProfile();
+                const userId = profile.userId;
+                const displayName = profile.displayName; 
+
+                // 判斷原網址是否已經有 '?'
+                const separator = SIMPLYMEET_URL.includes('?') ? '&' : '?';
+                
+                // 組合網址
+                // 這裡會自動幫你的欄位名稱加上 [] 或其他特殊符號進行編碼，確保網址正確
+                const finalUrl = `${SIMPLYMEET_URL}${separator}${encodeURIComponent(NICKNAME_FIELD_NAME)}=${encodeURIComponent(displayName)}&${encodeURIComponent(USERID_FIELD_NAME)}=${encodeURIComponent(userId)}`;
+                
+                // 執行跳轉
+                window.location.href = finalUrl;
+
+            } catch (err) {
+                showError('發生錯誤：' + err.message);
+            }
+        }
+
+        function showError(msg) {
+            document.querySelector('.loader').style.display = 'none';
+            document.getElementById('status-text').style.display = 'none';
+            const errDiv = document.getElementById('error-msg');
+            errDiv.style.display = 'block';
+            errDiv.innerText = msg;
+        }
+
+        main();
+    </script>
+</body>
+</html>
