@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>申請表單載入中...</title>
+    <style>
+        body {
+            background-color: #f9f7f5; /* 你的品牌色 */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: sans-serif;
+            color: #8c8c8c;
+        }
+        .loader {
+            border: 3px solid #e0e0e0;
+            border-top: 3px solid #cfa387;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        p { font-size: 14px; letter-spacing: 1px; }
+        #error-msg { display: none; color: #d9534f; margin-top: 20px; font-size: 12px; padding: 0 20px; text-align: center; line-height: 1.5; }
+    </style>
+    <!-- LIFF SDK -->
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body>
+
+    <div class="loader"></div>
+    <p id="status-text">正在為您開啟申請表...</p>
+    <div id="error-msg"></div>
+
+    <script>
+        // ==========================================
+        //  【設定區域】請修改這裡
+        // ==========================================
+
+        // 1. 你的 LIFF ID (請確認這是給 Typeform 用的 LIFF ID)
+        const MY_LIFF_ID = '2008869736-5K4EGAns'; 
+
+        // 2. 你的 Typeform 表單網址
+        // 例如: https://form.typeform.com/to/xxxxxx
+        const TYPEFORM_URL = 'https://gb2lbz7yoqt.typeform.com/to/SZ4m0BcM'; 
+
+        // 3. Typeform 隱藏欄位名稱 (Hidden Fields)
+        // 請務必去 Typeform 後台 -> Logic -> Personalize -> Hidden Fields 設定
+        // 建議全部小寫，例如 'userid', 'nickname'
+        const PARAM_USERID = 'userid'; 
+        const PARAM_NICKNAME = 'nickname'; 
+
+
+        // ==========================================
+        //  【核心邏輯 (安全版)】
+        // ==========================================
+
+        // 等待網頁全部載入後再執行
+        window.onload = function() {
+            main();
+        };
+
+        async function main() {
+            try {
+                // 安全檢查
+                if (typeof liff === 'undefined') {
+                    throw new Error('LIFF SDK 載入失敗，請檢查網路連線。');
+                }
+
+                // 初始化 LIFF
+                await liff.init({ liffId: MY_LIFF_ID });
+
+                // 檢查登入
+                if (!liff.isLoggedIn()) {
+                    liff.login();
+                    return;
+                }
+
+                // 獲取資料
+                const profile = await liff.getProfile();
+                const userId = profile.userId;
+                const displayName = profile.displayName; 
+
+                // 判斷原網址是否已經有 '?' (有些 Typeform 網址可能自帶參數)
+                // Typeform 支援用 '#' 或 '?' 傳遞參數，這裡使用 '?' 兼容性較好
+                const separator = TYPEFORM_URL.includes('?') ? '&' : '?';
+                
+                // 組合網址
+                // 結果範例: https://form.typeform.com/to/xxx?userid=U12345&nickname=%E5%B0%8F%E7%BE%8E
+                const finalUrl = `${TYPEFORM_URL}${separator}${PARAM_USERID}=${encodeURIComponent(userId)}&${PARAM_NICKNAME}=${encodeURIComponent(displayName)}`;
+                
+                // 執行跳轉
+                window.location.href = finalUrl;
+
+            } catch (err) {
+                showError('發生錯誤：' + err.message);
+            }
+        }
+
+        function showError(msg) {
+            document.querySelector('.loader').style.display = 'none';
+            document.getElementById('status-text').style.display = 'none';
+            const errDiv = document.getElementById('error-msg');
+            errDiv.style.display = 'block';
+            errDiv.innerText = msg;
+        }
+    </script>
+</body>
+</html>
