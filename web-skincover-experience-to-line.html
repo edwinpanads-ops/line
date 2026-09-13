@@ -94,7 +94,8 @@
                                 fbc: fbc,
                                 fbp: fbp,
                                 page_url: window.location.href,
-                                timestamp: new Date().toISOString()
+                                timestamp: new Date().toISOString(),
+                                client_user_agent: navigator.userAgent
                             })
                         });
                     } catch (e) {
