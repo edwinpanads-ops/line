@@ -65,16 +65,39 @@
                     throw new Error('LIFF SDK 載入失敗，請檢查網路連線或阻擋廣告軟體。');
                 }
 
-                // 從網址取出 opt-in 頁傳過來的 fbc / fbp
-                const urlParams = new URLSearchParams(window.location.search);
-                const fbc = urlParams.get('fbc') || '';
-                const fbp = urlParams.get('fbp') || '';
+                // 在 liff.init() 之前先存原始的 query string。LIFF 若經過 liff.state
+                // 轉址，這時讀到的可能還是沒解開的 liff.state，先存著給 init 之後的
+                // 備用解析用，不要直接拿來用
+                const rawSearchBeforeInit = window.location.search;
 
                 await liff.init({ liffId: MY_LIFF_ID });
 
                 if (!liff.isLoggedIn()) {
                     liff.login();
                     return;
+                }
+
+                // fbc / fbp 優先用 liff.init() 完成之後讀到的網址（LIFF SDK 這時應該
+                // 已經把 liff.state 解開、還原成原始 query string）；讀不到才退回用
+                // init 之前存的原始字串，嘗試解出 liff.state 裡包的原始參數
+                const postInitParams = new URLSearchParams(window.location.search);
+                let fbc = postInitParams.get('fbc') || '';
+                let fbp = postInitParams.get('fbp') || '';
+
+                if (!fbc || !fbp) {
+                    try {
+                        const preInitParams = new URLSearchParams(rawSearchBeforeInit);
+                        const state = preInitParams.get('liff.state');
+                        if (state) {
+                            const decoded = decodeURIComponent(state);
+                            const stateSearch = decoded.charAt(0) === '?' ? decoded : ('?' + decoded);
+                            const stateParams = new URLSearchParams(stateSearch);
+                            if (!fbc) fbc = stateParams.get('fbc') || '';
+                            if (!fbp) fbp = stateParams.get('fbp') || '';
+                        }
+                    } catch (e) {
+                        // liff.state 解不出來就算了，不影響主流程
+                    }
                 }
 
                 const profile = await liff.getProfile();
