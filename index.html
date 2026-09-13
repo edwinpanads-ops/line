@@ -99,10 +99,32 @@
                 const userId = profile.userId;
                 const displayName = profile.displayName; // 抓取暱稱
 
+                // 在跳轉 Typeform 前，盡力送一次 IP/UA 給 Make 存進 data store，
+                // 最多等 1.5 秒；不論成功、失敗或逾時都不卡住跳轉
+                const IP_UA_HOOK_URL = 'https://hook.eu2.make.com/yseylb6scnfyhs9g3o8bysbqs83ryh8f';
+                try {
+                    await Promise.race([
+                        fetch(IP_UA_HOOK_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            keepalive: true,
+                            body: JSON.stringify({
+                                line_user_id: userId,
+                                nickname: displayName,
+                                client_user_agent: navigator.userAgent,
+                                source: 'typeform_liff'
+                            })
+                        }),
+                        new Promise(resolve => setTimeout(resolve, 1500))
+                    ]);
+                } catch (e) {
+                    // 送出失敗也不卡住使用者的流程
+                }
+
                 // 組合網址：Typeform 網址 + UserID + 暱稱
                 // 注意：中文暱稱必須用 encodeURIComponent 編碼，不然網址會壞掉
                 const finalUrl = `${TYPEFORM_URL}#userid=${userId}&nickname=${encodeURIComponent(displayName)}`;
-                
+
                 // 跳轉
                 window.location.href = finalUrl;
 
